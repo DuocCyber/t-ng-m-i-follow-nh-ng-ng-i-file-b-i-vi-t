@@ -1,0 +1,102 @@
+(function autoScrollAndClick() {
+    console.log("🔄 BẮT ĐẦU: Cuộn trang, chờ load, click 'Mời'...");
+
+    let totalClicked = 0;
+    let scrollCount = 0;
+    const MAX_SCROLLS = 60;
+    const SCROLL_STEP = 500;
+    const WAIT_AFTER_SCROLL = 2000;    // Tổng thời gian tối đa chờ load sau mỗi cuộn (ms)
+    const POLL_INTERVAL = 1000;        // Mỗi lần kiểm tra cách nhau 1 giây
+    const MAX_POLLS = Math.ceil(WAIT_AFTER_SCROLL / POLL_INTERVAL); // tự tính số lần kiểm tra
+
+    // Hàm click toàn bộ nút "Mời" đang có (chỉ click chưa đánh dấu)
+    function clickAllInviteButtons() {
+        const xpath = "//*[normalize-space(text())='Mời']";
+        const result = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        let clicked = 0;
+
+        for (let i = 0; i < result.snapshotLength; i++) {
+            const node = result.snapshotItem(i);
+            if (node && 
+                !node.disabled && 
+                node.getAttribute('aria-disabled') !== 'true' &&
+                node.dataset.autoClicked !== 'true') {
+                try {
+                    node.click();
+                    node.dataset.autoClicked = 'true';
+                    totalClicked++;
+                    clicked++;
+                    console.log(`✅ Click "Mời" #${totalClicked}`);
+                } catch (e) {
+                    console.warn('⚠️ Không click được:', e);
+                }
+            }
+        }
+        return clicked;
+    }
+
+    // Hàm cuộn xuống
+    function performScroll() {
+        window.scrollBy({ top: SCROLL_STEP, behavior: 'smooth' });
+        scrollCount++;
+        console.log(`📜 Lần cuộn thứ ${scrollCount}`);
+    }
+
+    // Hàm chờ và kiểm tra sự xuất hiện của nút "Mời"
+    // callback được gọi khi tìm thấy hoặc hết thời gian chờ
+    function waitForInviteButtons(callback, pollCount = 0) {
+        // Kiểm tra xem có nút "Mời" nào chưa click không
+        const xpath = "//*[normalize-space(text())='Mời']";
+        const result = document.evaluate(xpath, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+        let foundUnclicked = false;
+        for (let i = 0; i < result.snapshotLength; i++) {
+            const node = result.snapshotItem(i);
+            if (node && 
+                !node.disabled && 
+                node.getAttribute('aria-disabled') !== 'true' &&
+                node.dataset.autoClicked !== 'true') {
+                foundUnclicked = true;
+                break;
+            }
+        }
+
+        if (foundUnclicked) {
+            console.log(`🔍 Đã thấy nút "Mời" mới (sau ${pollCount} lần kiểm tra). Click ngay...`);
+            clickAllInviteButtons();
+            callback(); // tiếp tục vòng lặp chính
+            return;
+        }
+
+        // Nếu chưa thấy và chưa quá số lần thử
+        if (pollCount < MAX_POLLS) {
+            console.log(`⏳ Chưa thấy nút "Mời", kiểm tra lại sau ${POLL_INTERVAL}ms (lần ${pollCount + 1}/${MAX_POLLS})`);
+            setTimeout(() => {
+                waitForInviteButtons(callback, pollCount + 1);
+            }, POLL_INTERVAL);
+        } else {
+            console.log(`⏹️ Hết thời gian chờ (${WAIT_AFTER_SCROLL}ms), không thấy nút mới. Tiếp tục cuộn...`);
+            callback(); // tiếp tục dù không có nút
+        }
+    }
+
+    // Vòng lặp chính: cuộn → chờ → click → cuộn tiếp
+    function mainLoop() {
+        // Nếu đã đạt giới hạn cuộn thì dừng
+        if (scrollCount >= MAX_SCROLLS) {
+            console.log(`🏁 Đã đạt giới hạn cuộn (${MAX_SCROLLS} lần). Tổng số "Mời" đã click: ${totalClicked}`);
+            return;
+        }
+
+        // Cuộn xuống
+        performScroll();
+
+        // Sau khi cuộn, chờ và kiểm tra nút "Mời"
+        waitForInviteButtons(() => {
+            // Sau khi đã click hoặc hết thời gian chờ, tiếp tục vòng lặp
+            setTimeout(mainLoop, 500); // nghỉ ngắn rồi cuộn tiếp
+        });
+    }
+
+    // Bắt đầu sau 1 giây
+    setTimeout(mainLoop, 1000);
+})();
