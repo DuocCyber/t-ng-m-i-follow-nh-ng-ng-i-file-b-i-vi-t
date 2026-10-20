@@ -1,204 +1,53 @@
-(function autoScrollAndClick() {
-    console.log("🚀 BẮT ĐẦU: Cuộn từ từ + chờ FB load + mời nhanh...");
+(async function autoInviteFacebookTurbo() {
+    const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    console.log("⚡⚡ Đã bật Tool Mời SIÊU TỐC (Turbo Speed)...");
+    let totalInvited = 0;
 
-    let totalClicked = 0;
-    let scrollCount = 0;
-
-    const MAX_SCROLLS = 100;
-
-    // =========================
-    // TỐC ĐỘ CUỘN
-    // =========================
-    const SCROLL_STEP = 400;
-    const SCROLL_DELAY = 1200;
-
-    // =========================
-    // CHỜ FACEBOOK LOAD
-    // =========================
-    const POLL_INTERVAL = 700;
-    const MAX_POLLS = 8; // tối đa 5.6 giây
-
-    // =========================
-    // CLICK NHANH TOÀN BỘ "MỜI"
-    // =========================
-    function clickAllInviteButtons() {
-        const xpath = "//*[normalize-space(text())='Mời']";
-
-        const result = document.evaluate(
-            xpath,
-            document,
-            null,
-            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-            null
-        );
-
-        let clicked = 0;
-
-        for (let i = 0; i < result.snapshotLength; i++) {
-
-            const node = result.snapshotItem(i);
-
-            if (
-                node &&
-                !node.disabled &&
-                node.getAttribute('aria-disabled') !== 'true' &&
-                node.dataset.autoClicked !== 'true'
-            ) {
-                try {
-                    node.click();
-
-                    node.dataset.autoClicked = 'true';
-
-                    totalClicked++;
-                    clicked++;
-
-                    console.log(`✅ Mời #${totalClicked}`);
-
-                } catch (e) {
-                    console.warn("⚠️ Click lỗi:", e);
-                }
+    // Tự động tìm khung cuộn danh sách của Facebook
+    function getScrollContainer() {
+        const dialog = document.querySelector('div[role="dialog"]');
+        if (!dialog) return null;
+        
+        const allDivs = dialog.querySelectorAll('div');
+        for (let div of allDivs) {
+            const style = window.getComputedStyle(div);
+            if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && div.scrollHeight > div.clientHeight) {
+                return div;
             }
         }
-
-        return clicked;
+        return dialog;
     }
 
-    // =========================
-    // KIỂM TRA CÒN "MỜI" CHƯA CLICK
-    // =========================
-    function hasNewInviteButton() {
-
-        const xpath = "//*[normalize-space(text())='Mời']";
-
-        const result = document.evaluate(
-            xpath,
-            document,
-            null,
-            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
-            null
-        );
-
-        for (let i = 0; i < result.snapshotLength; i++) {
-
-            const node = result.snapshotItem(i);
-
-            if (
-                node &&
-                !node.disabled &&
-                node.getAttribute('aria-disabled') !== 'true' &&
-                node.dataset.autoClicked !== 'true'
-            ) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    // =========================
-    // CHỜ FB LOAD NÚT MỚI
-    // =========================
-    function waitForNewButtons(callback, poll = 0) {
-
-        // Mời ngay những nút đang có
-        const clicked = clickAllInviteButtons();
-
-        if (clicked > 0) {
-
-            console.log(`⚡ Đã mời nhanh ${clicked} người`);
-
-            // Cho FB cập nhật DOM một chút
-            setTimeout(() => {
-                waitForNewButtons(callback, 0);
-            }, 500);
-
-            return;
-        }
-
-        // Nếu có nút mới xuất hiện
-        if (hasNewInviteButton()) {
-
-            console.log("🔎 FB vừa load thêm nút Mời");
-
-            clickAllInviteButtons();
-
-            setTimeout(() => {
-                waitForNewButtons(callback, 0);
-            }, 500);
-
-            return;
-        }
-
-        // Chưa có → tiếp tục chờ
-        if (poll < MAX_POLLS) {
-
-            console.log(
-                `⏳ Đang chờ FB load... ${poll + 1}/${MAX_POLLS}`
-            );
-
-            setTimeout(() => {
-                waitForNewButtons(callback, poll + 1);
-            }, POLL_INTERVAL);
-
-            return;
-        }
-
-        console.log("➡️ Chờ đủ lâu, tiếp tục cuộn.");
-
-        callback();
-    }
-
-    // =========================
-    // CUỘN
-    // =========================
-    function performScroll() {
-
-        window.scrollBy({
-            top: SCROLL_STEP,
-            behavior: "smooth"
-        });
-
-        scrollCount++;
-
-        console.log(`📜 Cuộn lần ${scrollCount}/${MAX_SCROLLS}`);
-    }
-
-    // =========================
-    // VÒNG CHÍNH
-    // =========================
-    function mainLoop() {
-
-        if (scrollCount >= MAX_SCROLLS) {
-
-            console.log("================================");
-            console.log(`🏁 ĐÃ DỪNG`);
-            console.log(`📜 Tổng lượt cuộn: ${scrollCount}`);
-            console.log(`✅ Tổng Mời: ${totalClicked}`);
-            console.log("================================");
-
-            return;
-        }
-
-        // 1. Mời ngay những gì đang hiện
-        clickAllInviteButtons();
-
-        // 2. Cuộn
-        performScroll();
-
-        // 3. Chờ FB load
-        setTimeout(() => {
-
-            waitForNewButtons(() => {
-
-                // 4. Nghỉ nhẹ rồi cuộn tiếp
-                setTimeout(mainLoop, SCROLL_DELAY);
-
+    while (true) {
+        // Lấy tất cả nút "Mời" đang hiển thị
+        const buttons = Array.from(document.querySelectorAll('div[role="button"], button, [aria-label="Mời"]'))
+            .filter(btn => {
+                const text = btn.innerText ? btn.innerText.trim() : "";
+                return (text === "Mời" || text === "Invite" || btn.getAttribute('aria-label') === 'Mời') && 
+                       btn.offsetWidth > 0 && btn.offsetHeight > 0;
             });
 
-        }, 700);
+        // Bấm xả hàng loạt siêu nhanh
+        if (buttons.length > 0) {
+            for (const btn of buttons) {
+                btn.click();
+                totalInvited++;
+                console.log(`⚡ Đã mời: ${totalInvited}`);
+                
+                // Độ trễ 50ms (bấm cực nhanh ~20 người/giây)
+                await delay(50);
+            }
+        }
+
+        // Kéo cuộn ngay lập tức để nạp thêm danh sách mới
+        const container = getScrollContainer();
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+            container.dispatchEvent(new Event('scroll', { bubbles: true }));
+        }
+
+        // Rút ngắn thời gian chờ Facebook tải người mới xuống 0.8 giây
+        await delay(800);
     }
-
-    // Bắt đầu
-    setTimeout(mainLoop, 1000);
-
 })();
